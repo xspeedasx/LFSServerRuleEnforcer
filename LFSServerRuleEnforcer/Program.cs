@@ -24,6 +24,7 @@ insim.IS_PFL += (o, e) => { PlayerFlagChange(o, e); };
 insim.IS_PLL += (o, e) => { PlayerLeave(o, e); };
 insim.IS_CNL += (o, e) => { ConnLeave(o, e); };
 insim.IS_TOC += (o, e) => { TakeOverCar(o, e); };
+insim.IS_ISM += (o, e) => { global::System.Console.WriteLine($"Insim connected to: {e.Packet.HName}"); };
 
 await insim.InitializeAsync(new InSimSettings
 {
@@ -36,6 +37,7 @@ await insim.InitializeAsync(new InSimSettings
 
 await insim.SendAsync(TinyType.TINY_NCN);
 await insim.SendAsync(TinyType.TINY_NPL);
+await insim.SendAsync(TinyType.TINY_ISM);
 
 while (insim.IsConnected) 
 { 
