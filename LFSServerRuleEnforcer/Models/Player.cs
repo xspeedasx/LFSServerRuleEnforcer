@@ -10,5 +10,6 @@ namespace LFSServerRuleEnforcer.Models
         public string PName { get; set; }
         public PlayerFlags Flags { get; set; }
         public DateTime? IssueDetected { get; set; }
+        public string CName { get; set; }
     }
 }

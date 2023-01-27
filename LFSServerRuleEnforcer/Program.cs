@@ -6,12 +6,16 @@ using Microsoft.Extensions.Configuration;
 
 var players = new Dictionary<byte, Player>();
 var insim = new InSimClient();
-var builder = new ConfigurationBuilder()
+IConfigurationBuilder builder = new ConfigurationBuilder()
                 .SetBasePath(AppContext.BaseDirectory)
                 .AddJsonFile("appsettings.json", false, true);
 
-var config = builder.Build();
+IConfigurationRoot config = builder.Build();
 var appSettings = config.GetSection("AppSettings").Get<AppSettings>();
+CarInfoService? carInfoService =
+    string.IsNullOrEmpty(appSettings.ClientId) || string.IsNullOrEmpty(appSettings.ClientSecret)
+        ? null
+        : new CarInfoService(appSettings.CarInfoCacheDirectory);
 
 using var timer = new System.Timers.Timer(1000);
 timer.Elapsed += async (o, e) => { await Tick(o, e); };
@@ -48,21 +52,20 @@ Console.WriteLine("end.");
 
 Player? GetByUcid(byte ucid)
 {
-    var p = players == null ? null : players.ContainsKey(ucid) ? players[ucid] : null;
+    Player? p = players.ContainsKey(ucid) ? players[ucid] : null;
     return p;
 }
 
 Player? GetByPlid(byte plid)
 {
-    var p = players.FirstOrDefault(x => x.Value?.PLID == plid);
-    return p.Value;
+    (byte _, Player? p) = players.FirstOrDefault(x => x.Value.PLID == plid);
+    return p;
 }
 
 async Task Tick(object? sender, System.Timers.ElapsedEventArgs e)
 {
     foreach (var (ucid, p) in players)
     {
-        if(p == null) continue;
         await CheckFlags(p, p.Flags, "[Tick]");
         if(p.IssueDetected <= DateTime.Now.AddSeconds(-appSettings.SettingFixingPeriodSeconds))
         {
@@ -71,6 +74,8 @@ async Task Tick(object? sender, System.Timers.ElapsedEventArgs e)
             await insim.SendAsync($"{p.PName} ^3has been spectated for not complying with clutch usage rules");
         }
     }
+
+    await carInfoService.UpdateCarInfos();
 }
 
 void NewConn(object o, PacketEventArgs<IS_NCN> e)
@@ -91,6 +96,7 @@ void NewPlayer(object o, PacketEventArgs<IS_NPL> e)
     if(p == null) return;
     p.PName = npl.PName;
     p.PLID = npl.PLID;
+    p.CName = npl.CName;
     
     var flags = npl.Flags;
     p.Flags = flags;
@@ -145,13 +151,19 @@ void ConnLeave(object o, PacketEventArgs<IS_CNL> e)
 async Task CheckFlags(Player p, PlayerFlags flags, string origin = "")
 {
     if (p.PLID == 0) return;
-    var autoClutch = (flags & PlayerFlags.PIF_AUTOCLUTCH) > 0;
-    var clutchAxis = (flags & PlayerFlags.PIF_AXIS_CLUTCH) > 0;
+    bool autoClutch = (flags & PlayerFlags.PIF_AUTOCLUTCH) > 0;
+    bool clutchAxis = (flags & PlayerFlags.PIF_AXIS_CLUTCH) > 0;
 
     if (!autoClutch && !clutchAxis)
     {
         if (p.IssueDetected == null)
         {
+            if (carInfoService?.GetModEntryById(p.CName) is { } car &&
+                (car.ev || car.vehicle.shiftType is ShiftType.Centrifugal or ShiftType.Electric))
+            {
+                return;
+            }
+            
             var secs = appSettings.SettingFixingPeriodSeconds;
             var period = secs < 60
                 ? $"{secs} seconds"
