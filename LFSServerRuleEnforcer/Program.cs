@@ -15,7 +15,7 @@ var appSettings = config.GetSection("AppSettings").Get<AppSettings>();
 CarInfoService? carInfoService =
     string.IsNullOrEmpty(appSettings.ClientId) || string.IsNullOrEmpty(appSettings.ClientSecret)
         ? null
-        : new CarInfoService(appSettings.CarInfoCacheDirectory);
+        : new CarInfoService(appSettings);
 
 using var timer = new System.Timers.Timer(1000);
 timer.Elapsed += async (o, e) => { await Tick(o, e); };

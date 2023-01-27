@@ -554,7 +554,6 @@ public class CarInfoService
     private readonly Dictionary<string, ModCarEntry> _carEntries;
 
     // public Dictionary<string, string> CarNames;
-    private readonly string _carInfoCacheDirectory;
     private readonly AppSettings _appSettings;
     private string _accessToken = "";
     private DateTime _lastUpdated = DateTime.MinValue;
@@ -562,9 +561,8 @@ public class CarInfoService
 
     private bool _updating;
 
-    public CarInfoService(string carInfoCacheDirectory, AppSettings appSettings)
+    public CarInfoService(AppSettings appSettings)
     {
-        _carInfoCacheDirectory = carInfoCacheDirectory;
         _appSettings = appSettings;
         _carEntries = new Dictionary<string, ModCarEntry>();
         LoadLocalCache();
@@ -586,10 +584,11 @@ public class CarInfoService
 
     private void LoadLocalCache()
     {
-        if (!Directory.Exists(_carInfoCacheDirectory))
-            Directory.CreateDirectory(_carInfoCacheDirectory);
+        string carInfoCacheDirectory = _appSettings.CarInfoCacheDirectory;
+        if (!Directory.Exists(carInfoCacheDirectory))
+            Directory.CreateDirectory(carInfoCacheDirectory);
 
-        string[] cacheFolders = Directory.GetDirectories(_carInfoCacheDirectory);
+        string[] cacheFolders = Directory.GetDirectories(carInfoCacheDirectory);
         //foreach (var folder in cacheFolders)
         Parallel.ForEach(cacheFolders, folder =>
         {
@@ -736,7 +735,7 @@ public class CarInfoService
         string modId = modDetails.id;
         _carEntries[modId] = modDetails;
 
-        string modDir = Path.Combine(_carInfoCacheDirectory, $"{modId}");
+        string modDir = Path.Combine(_appSettings.CarInfoCacheDirectory, $"{modId}");
         if (!Directory.Exists(modDir))
             Directory.CreateDirectory(modDir);
 
